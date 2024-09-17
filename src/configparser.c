@@ -417,10 +417,10 @@ int populate_encoder(EncoderSetting *encoder_setting, cJSON* json)
 
 
   if (strcmp(encoder_setting->mode, "ENC_RC_MODE_H264VBR") == 0) {
-    rc_attr->rcMode = ENC_RC_MODE_H264VBR;
+    rc_attr->attrRcMode.rcMode = ENC_RC_MODE_VBR;
   }
   else if (strcmp(encoder_setting->mode, "MJPEG") == 0) {
-    rc_attr->rcMode = 0;
+    rc_attr->attrRcMode.rcMode = 0;
   }
   else {
     log_error("Unknown encoding mode: %s", encoder_setting->mode);
@@ -431,21 +431,21 @@ int populate_encoder(EncoderSetting *encoder_setting, cJSON* json)
   cJSON *h264vbr_json = cJSON_GetObjectItemCaseSensitive(json, "h264vbr_settings");
   if (h264vbr_json) {
     cJSON *statistics_interval = cJSON_GetObjectItemCaseSensitive(h264vbr_json, "statistics_interval");
-    rc_attr->attrH264Vbr.staticTime = statistics_interval->valueint;
+    rc_attr->attrRcMode.attrH264Vbr.staticTime = statistics_interval->valueint;
 
     cJSON *max_bitrate = cJSON_GetObjectItemCaseSensitive(h264vbr_json, "max_bitrate");    
-    rc_attr->attrH264Vbr.maxBitRate = max_bitrate->valueint;
+    rc_attr->attrRcMode.attrH264Vbr.maxBitRate = max_bitrate->valueint;
 
     cJSON *change_pos = cJSON_GetObjectItemCaseSensitive(h264vbr_json, "change_pos");    
-    rc_attr->attrH264Vbr.changePos = change_pos->valueint;
+    rc_attr->attrRcMode.attrH264Vbr.changePos = change_pos->valueint;
 
-    rc_attr->attrH264Vbr.outFrmRate.frmRateNum = encoder_setting->frame_rate_numerator;
-    rc_attr->attrH264Vbr.outFrmRate.frmRateDen = encoder_setting->frame_rate_denominator;
-    rc_attr->attrH264Vbr.maxGop = encoder_setting->max_group_of_pictures;
-    rc_attr->attrH264Vbr.maxQp = encoder_setting->max_qp;
-    rc_attr->attrH264Vbr.minQp = encoder_setting->min_qp;  
-    rc_attr->attrH264Vbr.FrmQPStep = encoder_setting->frame_qp_step;
-    rc_attr->attrH264Vbr.GOPQPStep = encoder_setting->gop_qp_step;
+    rc_attr->outFrmRate.frmRateNum = encoder_setting->frame_rate_numerator;
+    rc_attr->outFrmRate.frmRateDen = encoder_setting->frame_rate_denominator;
+    rc_attr->maxGop = encoder_setting->max_group_of_pictures;
+    rc_attr->attrRcMode.attrH264Vbr.maxQp = encoder_setting->max_qp;
+    rc_attr->attrRcMode.attrH264Vbr.minQp = encoder_setting->min_qp;  
+    rc_attr->attrRcMode.attrH264Vbr.frmQPStep = encoder_setting->frame_qp_step;
+    rc_attr->attrRcMode.attrH264Vbr.gopQPStep = encoder_setting->gop_qp_step;
   }
 
   log_info("Done setting up encoder attributes");

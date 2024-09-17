@@ -1,6 +1,7 @@
 #include "models.h"
 #include "capture.h"
 #include "bgramapinfo.h"
+#include <errno.h>
 
 /*
 
@@ -10,7 +11,7 @@ IMP - Ingenic Multimedia Platform
 */
 
 extern sig_atomic_t sigint_received;
-extern snd_pcm_t *pcm_handle;
+// extern snd_pcm_t *pcm_handle;
 extern pthread_mutex_t frame_generator_mutex; 
 
 // Globals
@@ -18,44 +19,49 @@ int FrameSourceEnabled[5] = {0,0,0,0,0};
 IMPRgnHandle osdRegion;
 
 // The general sqlite configuration database
-sqlite3 *db;
+// sqlite3 *db;
 
 int initialize_sensor(IMPSensorInfo *sensor_info)
 {
   int ret;
-  char sensor_name_buffer[SENSOR_NAME_MAX_LENGTH];
-  char *sensor_name;
-  FILE *sensor_info_proc_file;
+  // char sensor_name_buffer[SENSOR_NAME_MAX_LENGTH];
+  char sensor_name[SENSOR_NAME_MAX_LENGTH];
+  // FILE *sensor_info_proc_file;
   
   log_info("Initializing sensor");
 
-  // Read sensor from /proc filesystem
-  // The string will look like "sensor :jxf23\n" so need to parse it
-  sensor_info_proc_file = fopen("/proc/jz/sinfo/info","r");
+  log_info("STEP TWO");
+  // // Read sensor from /proc filesystem
+  // // The string will look like "sensor :jxf23\n" so need to parse it
+  // sensor_info_proc_file = fopen("/proc/jz/sinfo/info","r");
 
-  if( fgets(sensor_name_buffer, SENSOR_NAME_MAX_LENGTH, sensor_info_proc_file) == NULL) {
-    log_error("Error getting sensor name from /proc/jz/sinfo/info");
-    return -1;
-  }
+  // if( fgets(sensor_name_buffer, SENSOR_NAME_MAX_LENGTH, sensor_info_proc_file) == NULL) {
+  //   log_error("Error getting sensor name from /proc/jz/sinfo/info");
+  //   return -1;
+  // }
 
-  // Pointer to first occurance of the colon
-  sensor_name = strstr(sensor_name_buffer, ":");
-  if (sensor_name != NULL) {
-    sensor_name = sensor_name + 1;
-    // Assume the last character is a newline and remove it
-    sensor_name[strlen(sensor_name)-1] = '\0';
-  }
-  else {
-    log_error("Expecting sensor name read from /proc to have a colon.");
-    return -1;
-  }
+  // // Pointer to first occurance of the colon
+  // sensor_name = strstr(sensor_name_buffer, ":");
+  // if (sensor_name != NULL) {
+  //   sensor_name = sensor_name + 1;
+  //   // Assume the last character is a newline and remove it
+  //   sensor_name[strlen(sensor_name)-1] = '\0';
+  // }
+  // else {
+  //   log_error("Expecting sensor name read from /proc to have a colon.");
+  //   return -1;
+  // }
+  strcpy(sensor_name,"jxf23");
+  log_info("STEP THREE");
+  int sensor_name_len = strlen(sensor_name);
 
+  log_info("STEP FOUR");
   log_info("Determined sensor name: %s", sensor_name);
 
   memset(sensor_info, 0, sizeof(IMPSensorInfo));
-	memcpy(sensor_info->name, sensor_name, strlen(sensor_name)+1);
+	memcpy(sensor_info->name, sensor_name, sensor_name_len);
 	sensor_info->cbus_type = SENSOR_CUBS_TYPE;
-	memcpy(sensor_info->i2c.type, sensor_name, strlen(sensor_name)+1);
+	memcpy(sensor_info->i2c.type, sensor_name, sensor_name_len);
   sensor_info->i2c.addr = SENSOR_I2C_ADDR;
 
   log_info("IMPSensorInfo details: ");
@@ -123,201 +129,203 @@ int configure_video_tuning_parameters(CameraConfig *camera_config)
   log_info("Configuring video tuning parameters");
 
   // Sharpness
-  IMP_ISP_Tuning_SetSharpness(50);
+  // IMP_ISP_Tuning_SetSharpness(50);
 
   // Image flipping
-  if (camera_config->flip_vertical) {
-    log_info("Flipping image vertically");
-    IMP_ISP_Tuning_SetISPVflip(IMPISP_TUNING_OPS_MODE_ENABLE);
-  }
-  else {
-    IMP_ISP_Tuning_SetISPVflip(IMPISP_TUNING_OPS_MODE_DISABLE);    
-  }
+  // if (camera_config->flip_vertical) {
+  //   log_info("Flipping image vertically");
+  //   IMP_ISP_Tuning_SetISPVflip(IMPISP_TUNING_OPS_MODE_ENABLE);
+  // }
+  // else {
+  //   IMP_ISP_Tuning_SetISPVflip(IMPISP_TUNING_OPS_MODE_DISABLE);    
+  // }
 
-  if (camera_config->flip_horizontal) {
-    log_info("Flipping image horizontally");
-    IMP_ISP_Tuning_SetISPHflip(IMPISP_TUNING_OPS_MODE_ENABLE);
-  }
-  else {
-    IMP_ISP_Tuning_SetISPHflip(IMPISP_TUNING_OPS_MODE_DISABLE);    
-  }
+  // if (camera_config->flip_horizontal) {
+  //   log_info("Flipping image horizontally");
+  //   IMP_ISP_Tuning_SetISPHflip(IMPISP_TUNING_OPS_MODE_ENABLE);
+  // }
+  // else {
+  //   IMP_ISP_Tuning_SetISPHflip(IMPISP_TUNING_OPS_MODE_DISABLE);    
+  // }
 
+  IMP_ISP_Tuning_SetISPVflip(IMPISP_TUNING_OPS_MODE_DISABLE);
+  IMP_ISP_Tuning_SetISPHflip(IMPISP_TUNING_OPS_MODE_DISABLE);
   return 0;
 }
 
-int initialize_audio()
-{
-  int ret;
-  int device_id = 1;
-  int audio_channel_id = 0;
+// int initialize_audio()
+// {
+//   int ret;
+//   int device_id = 1;
+//   int audio_channel_id = 0;
 
-  IMPAudioIOAttr audio_settings;
-  IMPAudioIChnParam audio_channel_params;
+//   IMPAudioIOAttr audio_settings;
+//   IMPAudioIChnParam audio_channel_params;
 
-  log_info("Initializing audio settings");
+//   log_info("Initializing audio settings");
 
-  audio_settings.samplerate = AUDIO_SAMPLE_RATE_48000;
-  audio_settings.bitwidth = AUDIO_BIT_WIDTH_16;
-  audio_settings.soundmode = AUDIO_SOUND_MODE_MONO; 
+//   audio_settings.samplerate = AUDIO_SAMPLE_RATE_48000;
+//   audio_settings.bitwidth = AUDIO_BIT_WIDTH_16;
+//   audio_settings.soundmode = AUDIO_SOUND_MODE_MONO; 
 
-  // Number of audio frames to cache (max is 50) 
-  audio_settings.frmNum = MAX_AUDIO_FRAME_NUM;
+//   // Number of audio frames to cache (max is 50) 
+//   audio_settings.frmNum = MAX_AUDIO_FRAME_NUM;
 
-  // Number of sampling points per frame
-  audio_settings.numPerFrm = 1920;
-  audio_settings.chnCnt = 1;
-
-
-
-  // ALSA
-  snd_pcm_hw_params_t *pcm_hw_params;
-  snd_pcm_uframes_t pcm_frames;
-  int sample_rate, audio_channels;
+//   // Number of sampling points per frame
+//   audio_settings.numPerFrm = 1920;
+//   audio_settings.chnCnt = 1;
 
 
 
-
-  ret = IMP_AI_SetPubAttr(device_id, &audio_settings);
-
-  if(ret < 0){
-    log_error("Error in setting attributes for audio encoder\n");
-    return -1;
-  }
-
-  log_info("Sample rate: %d", audio_settings.samplerate);
-  log_info("Bit width: %d", audio_settings.bitwidth);
-  log_info("Sound mode: %d", audio_settings.soundmode);
-  log_info("Max frames to cache: %d", audio_settings.frmNum);
-  log_info("Samples per frame: %d", audio_settings.numPerFrm);
-
-  /* Step 2: enable AI device. */
-  ret = IMP_AI_Enable(device_id);
-  if(ret != 0) {
-    log_error("Error enabling the audio device: %d", device_id);
-    return -1;
-  }
-
-
-  // Set audio channel attributes of device
-
-  // Audio frame buffer depth
-  audio_channel_params.usrFrmDepth = 20;
-
-  ret = IMP_AI_SetChnParam(device_id, audio_channel_id, &audio_channel_params);
-  if(ret != 0) {
-    log_error("Error setting the audio channel parameters for device %d", device_id);
-    return -1;
-  }
-
-  // Step 4: enable AI channel.
-  ret = IMP_AI_EnableChn(device_id, audio_channel_id);
-  if(ret != 0) {
-    log_error("Error enabling audio channel");
-    return -1;
-  }
-
-  /* Step 5: Set audio channel volume. */
-  ret = IMP_AI_SetVol(device_id, audio_channel_id, 70);
-  if(ret != 0) {
-    log_error("Error setting the audio channel volume");
-    return -1;
-  }  
-
-
-  // Enable hardware noise suppression
-  // 4 levels to pick from:
-  //
-  // NS_LOW  
-  // NS_MODERATE
-  // NS_HIGH
-  // NS_VERYHIGH
-  ret = IMP_AI_EnableNs(&audio_settings, NS_HIGH);
-  if(ret != 0) {
-    log_error("Error enable hardware noise suppression.");
-    return -1;
-  }  
-
-  // ALSA loopback device setup
-  // Found good sample code here: https://gist.github.com/ghedo/963382/98f730d61dad5b6fdf0c4edb7a257c5f9700d83b
-
-  // The last argument of 0 indicates I want blocking mode
-  ret = snd_pcm_open(&pcm_handle, "hw:0,0", SND_PCM_STREAM_PLAYBACK, 0);
-  if(ret != 0) {
-    log_error("Error opening ALSA PCM loopback device.");
-    return -1;
-  }
+//   // ALSA
+//   snd_pcm_hw_params_t *pcm_hw_params;
+//   snd_pcm_uframes_t pcm_frames;
+//   int sample_rate, audio_channels;
 
 
 
-  /* Allocate parameters object and fill it with default values*/
-  snd_pcm_hw_params_alloca(&pcm_hw_params);
-  snd_pcm_hw_params_any(pcm_handle, pcm_hw_params);
+
+//   ret = IMP_AI_SetPubAttr(device_id, &audio_settings);
+
+//   if(ret < 0){
+//     log_error("Error in setting attributes for audio encoder\n");
+//     return -1;
+//   }
+
+//   log_info("Sample rate: %d", audio_settings.samplerate);
+//   log_info("Bit width: %d", audio_settings.bitwidth);
+//   log_info("Sound mode: %d", audio_settings.soundmode);
+//   log_info("Max frames to cache: %d", audio_settings.frmNum);
+//   log_info("Samples per frame: %d", audio_settings.numPerFrm);
+
+//   /* Step 2: enable AI device. */
+//   ret = IMP_AI_Enable(device_id);
+//   if(ret != 0) {
+//     log_error("Error enabling the audio device: %d", device_id);
+//     return -1;
+//   }
 
 
-  audio_channels = 1;
-  sample_rate = 48000;
+//   // Set audio channel attributes of device
+
+//   // Audio frame buffer depth
+//   audio_channel_params.usrFrmDepth = 20;
+
+//   ret = IMP_AI_SetChnParam(device_id, audio_channel_id, &audio_channel_params);
+//   if(ret != 0) {
+//     log_error("Error setting the audio channel parameters for device %d", device_id);
+//     return -1;
+//   }
+
+//   // Step 4: enable AI channel.
+//   ret = IMP_AI_EnableChn(device_id, audio_channel_id);
+//   if(ret != 0) {
+//     log_error("Error enabling audio channel");
+//     return -1;
+//   }
+
+//   /* Step 5: Set audio channel volume. */
+//   ret = IMP_AI_SetVol(device_id, audio_channel_id, 70);
+//   if(ret != 0) {
+//     log_error("Error setting the audio channel volume");
+//     return -1;
+//   }  
 
 
-  /* Set parameters */
-  if (ret = snd_pcm_hw_params_set_access(pcm_handle, pcm_hw_params, SND_PCM_ACCESS_RW_INTERLEAVED) < 0) {    
-    log_error("ERROR: Can't set interleaved mode. %s\n", snd_strerror(ret));
-  }
+//   // Enable hardware noise suppression
+//   // 4 levels to pick from:
+//   //
+//   // NS_LOW  
+//   // NS_MODERATE
+//   // NS_HIGH
+//   // NS_VERYHIGH
+//   ret = IMP_AI_EnableNs(&audio_settings, NS_HIGH);
+//   if(ret != 0) {
+//     log_error("Error enable hardware noise suppression.");
+//     return -1;
+//   }  
 
-  if (ret = snd_pcm_hw_params_set_format(pcm_handle, pcm_hw_params, SND_PCM_FORMAT_S16_LE) < 0)  {
-    log_error("ERROR: Can't set format. %s\n", snd_strerror(ret));
-  }
+//   // ALSA loopback device setup
+//   // Found good sample code here: https://gist.github.com/ghedo/963382/98f730d61dad5b6fdf0c4edb7a257c5f9700d83b
 
-  if (ret = snd_pcm_hw_params_set_channels(pcm_handle, pcm_hw_params, audio_channels) < 0) {
-    log_error("ERROR: Can't set channels number. %s\n", snd_strerror(ret));
-  }
-
-  if (ret = snd_pcm_hw_params_set_rate_near(pcm_handle, pcm_hw_params, &sample_rate, 0) < 0) {    
-    log_error("ERROR: Can't set rate. %s\n", snd_strerror(ret));  
-  }
-
-
-  // snd_pcm_uframes_t frames = 1920;
-
-  // if (ret = snd_pcm_hw_params_set_period_size(pcm_handle, pcm_hw_params, frames, 0) < 0) {
-  //   log_error("ERROR: Can't set period size. %s\n", snd_strerror(ret));
-  // }
-
-
-
-  /* Set number of periods. Periods used to be called fragments. */ 
-  // if (ret = snd_pcm_hw_params_set_periods(pcm_handle, pcm_hw_params, 2, 0) < 0) {
-  //   log_error("ERROR: Can't set periods. %s\n", snd_strerror(ret));
-  // }
-
-  // /* Set buffer size (in frames). The resulting latency is given by */
-  // /* latency = periodsize * periods / (rate * bytes_per_frame)     */
-  // if (ret = snd_pcm_hw_params_set_buffer_size(pcm_handle, pcm_hw_params, 960 * 2) < 0) {
-  //   log_error("ERROR: Can't set buffer size. %s\n", snd_strerror(ret));  
-  // }
-
-  /* Write parameters */
-  if (ret = snd_pcm_hw_params(pcm_handle, pcm_hw_params) < 0) {    
-    log_error("ERROR: Can't set hardware parameters. %s\n", snd_strerror(ret));
-  }
+//   // The last argument of 0 indicates I want blocking mode
+//   ret = snd_pcm_open(&pcm_handle, "hw:0,0", SND_PCM_STREAM_PLAYBACK, 0);
+//   if(ret != 0) {
+//     log_error("Error opening ALSA PCM loopback device.");
+//     return -1;
+//   }
 
 
 
-  log_info("PCM name: %s", snd_pcm_name(pcm_handle));
-  log_info("PCM state: %s", snd_pcm_state_name(snd_pcm_state(pcm_handle)));
-
-  snd_pcm_hw_params_get_channels(pcm_hw_params, &audio_channels);
-  log_info("PCM channels: %d", audio_channels);
-
-  snd_pcm_hw_params_get_rate(pcm_hw_params, &sample_rate, 0);
-  log_info("PCM sample rate: %d bps", sample_rate);
+//   /* Allocate parameters object and fill it with default values*/
+//   snd_pcm_hw_params_alloca(&pcm_hw_params);
+//   snd_pcm_hw_params_any(pcm_handle, pcm_hw_params);
 
 
-  log_info("Audio initialization complete");
+//   audio_channels = 1;
+//   sample_rate = 48000;
 
-  // initialize_capture_side_audio();
 
-  return 0;
-}
+//   /* Set parameters */
+//   if (ret = snd_pcm_hw_params_set_access(pcm_handle, pcm_hw_params, SND_PCM_ACCESS_RW_INTERLEAVED) < 0) {    
+//     log_error("ERROR: Can't set interleaved mode. %s\n", snd_strerror(ret));
+//   }
+
+//   if (ret = snd_pcm_hw_params_set_format(pcm_handle, pcm_hw_params, SND_PCM_FORMAT_S16_LE) < 0)  {
+//     log_error("ERROR: Can't set format. %s\n", snd_strerror(ret));
+//   }
+
+//   if (ret = snd_pcm_hw_params_set_channels(pcm_handle, pcm_hw_params, audio_channels) < 0) {
+//     log_error("ERROR: Can't set channels number. %s\n", snd_strerror(ret));
+//   }
+
+//   if (ret = snd_pcm_hw_params_set_rate_near(pcm_handle, pcm_hw_params, &sample_rate, 0) < 0) {    
+//     log_error("ERROR: Can't set rate. %s\n", snd_strerror(ret));  
+//   }
+
+
+//   // snd_pcm_uframes_t frames = 1920;
+
+//   // if (ret = snd_pcm_hw_params_set_period_size(pcm_handle, pcm_hw_params, frames, 0) < 0) {
+//   //   log_error("ERROR: Can't set period size. %s\n", snd_strerror(ret));
+//   // }
+
+
+
+//   /* Set number of periods. Periods used to be called fragments. */ 
+//   // if (ret = snd_pcm_hw_params_set_periods(pcm_handle, pcm_hw_params, 2, 0) < 0) {
+//   //   log_error("ERROR: Can't set periods. %s\n", snd_strerror(ret));
+//   // }
+
+//   // /* Set buffer size (in frames). The resulting latency is given by */
+//   // /* latency = periodsize * periods / (rate * bytes_per_frame)     */
+//   // if (ret = snd_pcm_hw_params_set_buffer_size(pcm_handle, pcm_hw_params, 960 * 2) < 0) {
+//   //   log_error("ERROR: Can't set buffer size. %s\n", snd_strerror(ret));  
+//   // }
+
+//   /* Write parameters */
+//   if (ret = snd_pcm_hw_params(pcm_handle, pcm_hw_params) < 0) {    
+//     log_error("ERROR: Can't set hardware parameters. %s\n", snd_strerror(ret));
+//   }
+
+
+
+//   log_info("PCM name: %s", snd_pcm_name(pcm_handle));
+//   log_info("PCM state: %s", snd_pcm_state_name(snd_pcm_state(pcm_handle)));
+
+//   snd_pcm_hw_params_get_channels(pcm_hw_params, &audio_channels);
+//   log_info("PCM channels: %d", audio_channels);
+
+//   snd_pcm_hw_params_get_rate(pcm_hw_params, &sample_rate, 0);
+//   log_info("PCM sample rate: %d bps", sample_rate);
+
+
+//   log_info("Audio initialization complete");
+
+//   // initialize_capture_side_audio();
+
+//   return 0;
+// }
 
 
 int create_encoding_group(int group_id)
@@ -373,34 +381,34 @@ int setup_encoding_engine(FrameSource* frame_source, EncoderSetting *encoder_set
   rc_attr = &channel_attr.rcAttr;
 
   if (strcmp(encoder_setting->mode, "ENC_RC_MODE_H264VBR") == 0) {
-    rc_attr->rcMode = ENC_RC_MODE_H264VBR;
+    rc_attr->attrRcMode.rcMode = ENC_RC_MODE_VBR;
   }
   else if (strcmp(encoder_setting->mode, "MJPEG") == 0) {
-    rc_attr->rcMode = 0;
+    rc_attr->attrRcMode.rcMode = 0;
   }
   else {
     log_error("Unknown encoding mode: %s", encoder_setting->mode);
   }
 
 
-  rc_attr->attrH264Vbr.outFrmRate.frmRateNum = encoder_setting->frame_rate_numerator;
-  rc_attr->attrH264Vbr.outFrmRate.frmRateDen = encoder_setting->frame_rate_denominator;
-  rc_attr->attrH264Vbr.maxGop = encoder_setting->max_group_of_pictures;
-  rc_attr->attrH264Vbr.maxQp = encoder_setting->max_qp;
-  rc_attr->attrH264Vbr.minQp = encoder_setting->min_qp;
+  rc_attr->outFrmRate.frmRateNum = encoder_setting->frame_rate_numerator;
+  rc_attr->outFrmRate.frmRateDen = encoder_setting->frame_rate_denominator;
+  rc_attr->maxGop = encoder_setting->max_group_of_pictures;
+  rc_attr->attrRcMode.attrH264Vbr.maxQp = encoder_setting->max_qp;
+  rc_attr->attrRcMode.attrH264Vbr.minQp = encoder_setting->min_qp;
   
-  // rc_attr->attrH264Vbr.staticTime = stream_settings->statistics_interval;
-  // rc_attr->attrH264Vbr.maxBitRate = stream_settings->max_bitrate;
-  // rc_attr->attrH264Vbr.changePos = stream_settings->change_pos;
+  // rc_attr->attrRcMode.attrH264Vbr.staticTime = stream_settings->statistics_interval;
+  // rc_attr->attrRcMode.attrH264Vbr.maxBitRate = stream_settings->max_bitrate;
+  // rc_attr->attrRcMode.attrH264Vbr.changePos = stream_settings->change_pos;
 
-  rc_attr->attrH264Vbr.staticTime = 1;
-  rc_attr->attrH264Vbr.maxBitRate = 500;
-  rc_attr->attrH264Vbr.changePos = 50;
+  rc_attr->attrRcMode.attrH264Vbr.staticTime = 2;
+  rc_attr->attrRcMode.attrH264Vbr.maxBitRate = 500;
+  rc_attr->attrRcMode.attrH264Vbr.changePos = 80;
 
 
-  rc_attr->attrH264Vbr.FrmQPStep = encoder_setting->frame_qp_step;
-  rc_attr->attrH264Vbr.GOPQPStep = encoder_setting->gop_qp_step;
-  rc_attr->attrH264FrmUsed.enable = 1;
+  rc_attr->attrRcMode.attrH264Vbr.frmQPStep = encoder_setting->frame_qp_step;
+  rc_attr->attrRcMode.attrH264Vbr.gopQPStep = encoder_setting->gop_qp_step;
+  // rc_attr->attrH264FrmUsed.enable = 1;
 
 
   log_info("Encoder channel attributes for channel %d", encoder_setting->channel);
@@ -488,16 +496,16 @@ void print_encoder_channel_attributes(IMPEncoderCHNAttr *attr)
                     enc_attr->profile,
                     enc_attr->picWidth,
                     enc_attr->picHeight,
-                    rc_attr->attrH264Vbr.outFrmRate.frmRateNum,
-                    rc_attr->attrH264Vbr.outFrmRate.frmRateDen,
-                    rc_attr->attrH264Vbr.maxGop,
-                    rc_attr->attrH264Vbr.maxQp,
-                    rc_attr->attrH264Vbr.minQp,
-                    rc_attr->attrH264Vbr.staticTime,
-                    rc_attr->attrH264Vbr.maxBitRate,
-                    rc_attr->attrH264Vbr.changePos,
-                    rc_attr->attrH264Vbr.FrmQPStep,
-                    rc_attr->attrH264Vbr.GOPQPStep
+                    rc_attr->outFrmRate.frmRateNum,
+                    rc_attr->outFrmRate.frmRateDen,
+                    rc_attr->maxGop,
+                    rc_attr->attrRcMode.attrH264Vbr.maxQp,
+                    rc_attr->attrRcMode.attrH264Vbr.minQp,
+                    rc_attr->attrRcMode.attrH264Vbr.staticTime,
+                    rc_attr->attrRcMode.attrH264Vbr.maxBitRate,
+                    rc_attr->attrRcMode.attrH264Vbr.changePos,
+                    rc_attr->attrRcMode.attrH264Vbr.frmQPStep,
+                    rc_attr->attrRcMode.attrH264Vbr.gopQPStep
                     );
   log_info("%s", buffer);
 }
@@ -614,236 +622,236 @@ int initialize_osd(int osdLoc)
 }
 
 // This is the entrypoint for the timestamp OSD thread
-void *timestamp_osd_entry_start(void *timestamp_osd_thread_params)
-{
-  int ret;
+// void *timestamp_osd_entry_start(void *timestamp_osd_thread_params)
+// {
+//   int ret;
 
-  CameraConfig *camera_config = (CameraConfig *)timestamp_osd_thread_params;
+//   CameraConfig *camera_config = (CameraConfig *)timestamp_osd_thread_params;
 
-  /*generate time*/
-  char DateStr[40];
-  time_t currTime;
-  struct tm *currDate;
-  unsigned i = 0, j = 0;
-  void *dateData = NULL;
-  uint32_t *timeStampData;
+//   /*generate time*/
+//   char DateStr[40];
+//   time_t currTime;
+//   struct tm *currDate;
+//   unsigned i = 0, j = 0;
+//   void *dateData = NULL;
+//   uint32_t *timeStampData;
 
-  IMPOSDRgnAttrData rAttrData;
+//   IMPOSDRgnAttrData rAttrData;
 
-  initialize_osd(camera_config->timestamp_location);
+//   initialize_osd(camera_config->timestamp_location);
 
-  int groupNumber = 0;
+//   int groupNumber = 0;
 
-  if (camera_config->show_timestamp <= 0) {
-    log_info("On screen timestamps not configured.");
-    return NULL;
-  }
+//   if (camera_config->show_timestamp <= 0) {
+//     log_info("On screen timestamps not configured.");
+//     return NULL;
+//   }
   
-  char* DateFormat = "%Y-%m-%d %H:%M:%S";
-  if (camera_config->timestamp_24h <= 0) {
-    DateFormat = "%Y-%m-%d %I:%M:%S %p";
-  }
+//   char* DateFormat = "%Y-%m-%d %H:%M:%S";
+//   if (camera_config->timestamp_24h <= 0) {
+//     DateFormat = "%Y-%m-%d %I:%M:%S %p";
+//   }
 
-  ret = IMP_OSD_ShowRgn(osdRegion, groupNumber, 1);
-  if( ret < 0) {
-    log_error("IMP_OSD_ShowRgn failed");
-    return NULL;
-  }
+//   ret = IMP_OSD_ShowRgn(osdRegion, groupNumber, 1);
+//   if( ret < 0) {
+//     log_error("IMP_OSD_ShowRgn failed");
+//     return NULL;
+//   }
 
-  timeStampData = malloc(20 * OSD_REGION_HEIGHT * OSD_REGION_WIDTH * 4);
-
-
-  while(!sigint_received) {
-      int penpos_t = 0;
-      int fontadv = 0;
-
-      time(&currTime);
-      currDate = localtime(&currTime);
-      memset(DateStr, 0, 40);
-      // strftime(DateStr, 40, "%Y-%m-%d %H:%M:%S", currDate);
-      strftime(DateStr, 40, DateFormat, currDate);
-      for (i = 0; i < 20; i++) {
-        switch(DateStr[i]) {
-          case '0' ... '9':
-            dateData = (void *)gBgramap[DateStr[i] - '0'].pdata;
-            fontadv = gBgramap[DateStr[i] - '0'].width;
-            penpos_t += gBgramap[DateStr[i] - '0'].width;
-            break;
-          case '-':
-            dateData = (void *)gBgramap[10].pdata;
-            fontadv = gBgramap[10].width;
-            penpos_t += gBgramap[10].width;
-            break;
-          case ' ':
-            dateData = (void *)gBgramap[11].pdata;
-            fontadv = gBgramap[11].width;
-            penpos_t += gBgramap[11].width;
-            break;
-          case ':':
-            dateData = (void *)gBgramap[12].pdata;
-            fontadv = gBgramap[12].width;
-            penpos_t += gBgramap[12].width;
-            break;
-          default:
-            break;
-        }
-
-        for (j = 0; j < OSD_REGION_HEIGHT; j++) {
-          memcpy((void *)((uint32_t *)timeStampData + j*20*OSD_REGION_WIDTH + penpos_t),
-              (void *)((uint32_t *)dateData + j*fontadv), fontadv*4);
-        }
-      }
-      rAttrData.picData.pData = timeStampData;
-      IMP_OSD_UpdateRgnAttrData(osdRegion, &rAttrData);
-      // log_info("Updated osdRegion to: %s", DateStr);
-
-      sleep(1);
-  }
-
-  free(timeStampData);
-
-  return NULL;
-
-}
+//   timeStampData = malloc(20 * OSD_REGION_HEIGHT * OSD_REGION_WIDTH * 4);
 
 
-// This is the entrypoint for the audio thread
-void *audio_thread_entry_start(void *audio_thread_params)
-{
-  int ret;
+//   while(!sigint_received) {
+//       int penpos_t = 0;
+//       int fontadv = 0;
 
-  // Audio device
-  int audio_device_id = 1;
-  int audio_channel_id = 0;
-  IMPAudioFrame audio_frame;
-  int num_samples;
-  short pcm_audio_data[1920 * 2];
+//       time(&currTime);
+//       currDate = localtime(&currTime);
+//       memset(DateStr, 0, 40);
+//       // strftime(DateStr, 40, "%Y-%m-%d %H:%M:%S", currDate);
+//       strftime(DateStr, 40, DateFormat, currDate);
+//       for (i = 0; i < 20; i++) {
+//         switch(DateStr[i]) {
+//           case '0' ... '9':
+//             dateData = (void *)gBgramap[DateStr[i] - '0'].pdata;
+//             fontadv = gBgramap[DateStr[i] - '0'].width;
+//             penpos_t += gBgramap[DateStr[i] - '0'].width;
+//             break;
+//           case '-':
+//             dateData = (void *)gBgramap[10].pdata;
+//             fontadv = gBgramap[10].width;
+//             penpos_t += gBgramap[10].width;
+//             break;
+//           case ' ':
+//             dateData = (void *)gBgramap[11].pdata;
+//             fontadv = gBgramap[11].width;
+//             penpos_t += gBgramap[11].width;
+//             break;
+//           case ':':
+//             dateData = (void *)gBgramap[12].pdata;
+//             fontadv = gBgramap[12].width;
+//             penpos_t += gBgramap[12].width;
+//             break;
+//           default:
+//             break;
+//         }
 
-  while(!sigint_received) {
+//         for (j = 0; j < OSD_REGION_HEIGHT; j++) {
+//           memcpy((void *)((uint32_t *)timeStampData + j*20*OSD_REGION_WIDTH + penpos_t),
+//               (void *)((uint32_t *)dateData + j*fontadv), fontadv*4);
+//         }
+//       }
+//       rAttrData.picData.pData = timeStampData;
+//       IMP_OSD_UpdateRgnAttrData(osdRegion, &rAttrData);
+//       // log_info("Updated osdRegion to: %s", DateStr);
 
-    ret = IMP_AI_PollingFrame(audio_device_id, audio_channel_id, 1000);
-    if (ret < 0) {
-      log_error("Error or timeout polling for audio frame");
-      pthread_exit(NULL);
-    }
+//       sleep(1);
+//   }
 
-    ret = IMP_AI_GetFrame(audio_device_id, audio_channel_id, &audio_frame, BLOCK);
-    if (ret < 0) {
-      log_error("Error getting audio frame data");
-      pthread_exit(NULL);
-    }
+//   free(timeStampData);
 
-    num_samples = audio_frame.len / sizeof(short);
+//   return NULL;
 
-    memcpy(pcm_audio_data, (void *)audio_frame.virAddr, audio_frame.len );
-
-    ret = IMP_AI_ReleaseFrame(audio_device_id, audio_channel_id, &audio_frame);
-    if(ret != 0) {
-      log_error("Error releasing audio frame");
-      pthread_exit(NULL);
-    }
-
-    ret = snd_pcm_writei(pcm_handle, pcm_audio_data, num_samples);
-
-    if ( ret == -EPIPE) {
-      log_error("Buffer underrun when writing to ALSA loopback device");
-      snd_pcm_prepare(pcm_handle);
-    }
-
-    if (ret < 0) {
-      log_error("ERROR. Can't write to PCM device. %s\n", snd_strerror(ret));
-    }
-
-  }
-}
-
-
-
-
-int sql_camera_profile_callback(void *shared_data, int count, char **data, char **columns)
-{
-  int ret, rc;
-  char sql[200];
-  char *err_msg;
-  int id;
-  CameraProfile *camera_profile = (CameraProfile *)shared_data;
-
-  AeStrategy ae_strategy;
-  SceneMode scene_mode;
-  ColorFxMode color_fx_mode;
-
-  for (int i = 0; i < count; i++) {
-
-    if (strcmp(columns[i], "ae_strategy_id") == 0) {
-      if(data[i]) {
-        id = strtol(data[i], NULL, 10);
-        // get_ae_strategy(id, &ae_strategy);
-        get_setting(id, "aestrategy", (Setting *)&ae_strategy);
-        log_info("AEStrategy id: %d, name: %s, description: %s, enum_value: %d", ae_strategy.id, ae_strategy.name, ae_strategy.description, ae_strategy.enum_value);
-        IMP_ISP_Tuning_SetAeStrategy(ae_strategy.enum_value);
-      }
-    }
-
-    if (strcmp(columns[i], "scene_mode_id") == 0) {
-      if(data[i]) {
-        id = strtol(data[i], NULL, 10);
-        get_setting(id, "scenemode", (Setting *)&scene_mode);
-        log_info("SceneMode id: %d, name: %s, description: %s, enum_value: %d", scene_mode.id, scene_mode.name, scene_mode.description, scene_mode.enum_value);
-        IMP_ISP_Tuning_SetSceneMode(scene_mode.enum_value);
-      }
-    }
-
-    if (strcmp(columns[i], "color_fx_mode_id") == 0) {
-      if(data[i]) {
-        id = strtol(data[i], NULL, 10);
-        get_setting(id, "colorfxmode", (Setting *)&color_fx_mode);
-        log_info("ColorFxMode id: %d, name: %s, description: %s, enum_value: %d", color_fx_mode.id, color_fx_mode.name, color_fx_mode.description, color_fx_mode.enum_value);
-        IMP_ISP_Tuning_SetColorfxMode(color_fx_mode.enum_value);
-      }
-    }
+// }
 
 
-  }
+// // This is the entrypoint for the audio thread
+// void *audio_thread_entry_start(void *audio_thread_params)
+// {
+//   int ret;
+
+//   // Audio device
+//   int audio_device_id = 1;
+//   int audio_channel_id = 0;
+//   IMPAudioFrame audio_frame;
+//   int num_samples;
+//   short pcm_audio_data[1920 * 2];
+
+//   while(!sigint_received) {
+
+//     ret = IMP_AI_PollingFrame(audio_device_id, audio_channel_id, 1000);
+//     if (ret < 0) {
+//       log_error("Error or timeout polling for audio frame");
+//       pthread_exit(NULL);
+//     }
+
+//     ret = IMP_AI_GetFrame(audio_device_id, audio_channel_id, &audio_frame, BLOCK);
+//     if (ret < 0) {
+//       log_error("Error getting audio frame data");
+//       pthread_exit(NULL);
+//     }
+
+//     num_samples = audio_frame.len / sizeof(short);
+
+//     memcpy(pcm_audio_data, (void *)audio_frame.virAddr, audio_frame.len );
+
+//     ret = IMP_AI_ReleaseFrame(audio_device_id, audio_channel_id, &audio_frame);
+//     if(ret != 0) {
+//       log_error("Error releasing audio frame");
+//       pthread_exit(NULL);
+//     }
+
+//     ret = snd_pcm_writei(pcm_handle, pcm_audio_data, num_samples);
+
+//     if ( ret == -EPIPE) {
+//       log_error("Buffer underrun when writing to ALSA loopback device");
+//       snd_pcm_prepare(pcm_handle);
+//     }
+
+//     if (ret < 0) {
+//       log_error("ERROR. Can't write to PCM device. %s\n", snd_strerror(ret));
+//     }
+
+//   }
+// }
+
+
+
+
+// int sql_camera_profile_callback(void *shared_data, int count, char **data, char **columns)
+// {
+//   int ret, rc;
+//   char sql[200];
+//   char *err_msg;
+//   int id;
+//   CameraProfile *camera_profile = (CameraProfile *)shared_data;
+
+//   AeStrategy ae_strategy;
+//   SceneMode scene_mode;
+//   ColorFxMode color_fx_mode;
+
+//   for (int i = 0; i < count; i++) {
+
+//     if (strcmp(columns[i], "ae_strategy_id") == 0) {
+//       if(data[i]) {
+//         id = strtol(data[i], NULL, 10);
+//         // get_ae_strategy(id, &ae_strategy);
+//         get_setting(id, "aestrategy", (Setting *)&ae_strategy);
+//         log_info("AEStrategy id: %d, name: %s, description: %s, enum_value: %d", ae_strategy.id, ae_strategy.name, ae_strategy.description, ae_strategy.enum_value);
+//         IMP_ISP_Tuning_SetAeStrategy(ae_strategy.enum_value);
+//       }
+//     }
+
+//     if (strcmp(columns[i], "scene_mode_id") == 0) {
+//       if(data[i]) {
+//         id = strtol(data[i], NULL, 10);
+//         get_setting(id, "scenemode", (Setting *)&scene_mode);
+//         log_info("SceneMode id: %d, name: %s, description: %s, enum_value: %d", scene_mode.id, scene_mode.name, scene_mode.description, scene_mode.enum_value);
+//         IMP_ISP_Tuning_SetSceneMode(scene_mode.enum_value);
+//       }
+//     }
+
+//     if (strcmp(columns[i], "color_fx_mode_id") == 0) {
+//       if(data[i]) {
+//         id = strtol(data[i], NULL, 10);
+//         get_setting(id, "colorfxmode", (Setting *)&color_fx_mode);
+//         log_info("ColorFxMode id: %d, name: %s, description: %s, enum_value: %d", color_fx_mode.id, color_fx_mode.name, color_fx_mode.description, color_fx_mode.enum_value);
+//         IMP_ISP_Tuning_SetColorfxMode(color_fx_mode.enum_value);
+//       }
+//     }
+
+
+//   }
     
-  return 0;
-}
+//   return 0;
+// }
 
 // This is the entrypoint for the real time configuration thread
 void *real_time_configuration_start(void *params)
 {
-  sqlite3_stmt *stmt;
-  char *err_msg = 0;
+  // sqlite3_stmt *stmt;
+  // char *err_msg = 0;
 
-  CameraProfile camera_profile;
+  // CameraProfile camera_profile;
 
-  int rc = sqlite3_open("/config/openmiko.db", &db);
+  // int rc = sqlite3_open("/config/openmiko.db", &db);
 
-  if (rc != SQLITE_OK) {    
-    log_error("Cannot open database: %s\n", sqlite3_errmsg(db));
-    sqlite3_close(db);
-    return NULL;
-  }
+  // if (rc != SQLITE_OK) {    
+  //   log_error("Cannot open database: %s\n", sqlite3_errmsg(db));
+  //   sqlite3_close(db);
+  //   return NULL;
+  // }
 
-  while(1) {
-    char* sql =
-      "SELECT ae_strategy_id, anti_flicker_attr_id, anti_fog_attr_id, color_fx_mode_id, "
-      "drc_mode_id, mesh_shading_scale_id, running_mode_id, scene_mode_id, temper_mode_id, tuning_mode_id, "
-      "tuning_ops_mode_id, core_awb_stats_mode_id, core_exposure_mode_id, core_exposure_unit_id, "
-      "core_white_balance_mode_id from openmiko_cameraprofile limit 1";
+  // while(1) {
+  //   char* sql =
+  //     "SELECT ae_strategy_id, anti_flicker_attr_id, anti_fog_attr_id, color_fx_mode_id, "
+  //     "drc_mode_id, mesh_shading_scale_id, running_mode_id, scene_mode_id, temper_mode_id, tuning_mode_id, "
+  //     "tuning_ops_mode_id, core_awb_stats_mode_id, core_exposure_mode_id, core_exposure_unit_id, "
+  //     "core_white_balance_mode_id from openmiko_cameraprofile limit 1";
 
-    log_info("[ExecSQL] %s", sql);
-    rc = sqlite3_exec(db, sql, sql_camera_profile_callback, &camera_profile, &err_msg);
+  //   log_info("[ExecSQL] %s", sql);
+  //   rc = sqlite3_exec(db, sql, sql_camera_profile_callback, &camera_profile, &err_msg);
 
-    if (rc != SQLITE_OK) {      
-      log_error("Failed to fetch data: %s\n", sqlite3_errmsg(db));
-      sqlite3_close(db);
-      return NULL;
-    }    
+  //   if (rc != SQLITE_OK) {      
+  //     log_error("Failed to fetch data: %s\n", sqlite3_errmsg(db));
+  //     sqlite3_close(db);
+  //     return NULL;
+  //   }    
 
-    sleep(5);
-  }
+  //   sleep(5);
+  // }
 
-  sqlite3_close(db);
+  // sqlite3_close(db);
 }
 
 
@@ -928,13 +936,14 @@ int output_v4l2_frames(EncoderSetting *encoder_setting)
   char *v4l2_device_path = encoder_setting->v4l2_device_path;
   int video_width = encoder_setting->pic_width;
   int video_height = encoder_setting->pic_height;
+  int channel = encoder_setting->channel;
 
   int frames_written = 0;
   float current_fps = 0;
   float elapsed_seconds = 0;
   struct timeval tval_before, tval_after, tval_result;
   float delay_in_seconds = 0;
-  float adjusted_delay_in_seconds = 0;
+  // float adjusted_delay_in_seconds = 0;
 
 
   struct v4l2_capability vid_caps;
@@ -1014,9 +1023,11 @@ int output_v4l2_frames(EncoderSetting *encoder_setting)
   log_info("Sleeping 2 seconds before starting to send frames...");
 
 
-  ret = IMP_Encoder_StartRecvPic(encoder_setting->channel);
+  // log_info("P0: %d", channel);
+  ret = IMP_Encoder_StartRecvPic(channel);
+  // log_info("P1");
   if (ret < 0) {
-    log_error("IMP_Encoder_StartRecvPic(%d) failed.", encoder_setting->channel);
+    log_error("IMP_Encoder_StartRecvPic(%d) failed.", channel);
     return -1;
   }
 
@@ -1029,50 +1040,57 @@ int output_v4l2_frames(EncoderSetting *encoder_setting)
   // int samples_file;
   // samples_file = fopen("/tmp/samples.pcm", "w");
 
-  clock_t start, end;
-  double cpu_time_used;
+  // clock_t start, end;
+  // double cpu_time_used;
 
+  // log_info("P2");
 
   while(!sigint_received) {
-    start = clock();
+    // start = clock();
+    // log_info("P3: %d", frames_written);
 
-    // Video Frames
-    if (frames_written == 200) {
-      gettimeofday(&tval_after, NULL);
-      timersub(&tval_after, &tval_before, &tval_result);
+    // // Video Frames
+    // if (frames_written == 200) {
+    //   log_info("P4");
+    //   gettimeofday(&tval_after, NULL);
+    //   log_info("P4.1");
+    //   timersub(&tval_after, &tval_before, &tval_result);
 
-      elapsed_seconds =  (long int)tval_result.tv_sec + ((long int)tval_result.tv_usec / 1000000);
+    //   log_info("P4.2");
+    //   elapsed_seconds =  (long int)tval_result.tv_sec + ((long int)tval_result.tv_usec / 1000000);
 
-      current_fps = 200 / elapsed_seconds;
-      log_info("Current FPS: %.2f / Channel %d", current_fps, encoder_setting->channel);
+    //   current_fps = 200 / elapsed_seconds;
+    //   log_info("Current FPS: %.2f / Channel %d", current_fps, channel);
 
-      // if (strcmp(v4l2_device_path, "/dev/video3") == 0) {
-      //   log_info("Obtained %d 16-bit samples from this specific audio frame", num_samples);
-      // }
+    //   // if (strcmp(v4l2_device_path, "/dev/video3") == 0) {
+    //   //   log_info("Obtained %d 16-bit samples from this specific audio frame", num_samples);
+    //   // }
 
-      // IMPEncoderCHNStat encoder_status;
+    //   // IMPEncoderCHNStat encoder_status;
 
-      // IMP_Encoder_Query(encoder_setting->channel, &encoder_status);
+    //   // IMP_Encoder_Query(encoder_setting->channel, &encoder_status);
 
-      // log_info("Registered: %u", encoder_status.registered);
-      // log_info("Work done (0 is running, 1 is not running): %u", encoder_status.work_done);
-      // log_info("Number of images to be encoded: %u", encoder_status.leftPics);
-      // log_info("Number of bytes remaining in the stream buffer: %u", encoder_status.leftStreamBytes);
+    //   // log_info("Registered: %u", encoder_status.registered);
+    //   // log_info("Work done (0 is running, 1 is not running): %u", encoder_status.work_done);
+    //   // log_info("Number of images to be encoded: %u", encoder_status.leftPics);
+    //   // log_info("Number of bytes remaining in the stream buffer: %u", encoder_status.leftStreamBytes);
 
-      frames_written = 0;
-      gettimeofday(&tval_before, NULL);
-    }
+    //   frames_written = 0;
+    //   gettimeofday(&tval_before, NULL);
+    // }
 
 
-    ret = IMP_Encoder_PollingStream(encoder_setting->channel, 1000);
+    // log_info("P5");
+    ret = IMP_Encoder_PollingStream(channel, 1000);
     if (ret < 0) {
-      log_error("Timeout while polling for stream on channel %d.", encoder_setting->channel);
+      log_error("Timeout while polling for stream on channel %d.", channel);
       continue;
     }
 
+    // log_info("P6");
 
     // Get H264 Stream on channel and enable a blocking call
-    ret = IMP_Encoder_GetStream(encoder_setting->channel, &stream, 1);
+    ret = IMP_Encoder_GetStream(channel, &stream, 1);
     if (ret < 0) {
       log_error("IMP_Encoder_GetStream() failed");
       return -1;
@@ -1084,6 +1102,7 @@ int output_v4l2_frames(EncoderSetting *encoder_setting)
     // Sum up the size of all the packs so we know the total size
     // of the frames we are sending
     total = 0;
+    // log_info("P7");
     for (i = 0; i < stream_packets; i++) {
       total = total + stream.pack[i].length;
     }
@@ -1091,24 +1110,33 @@ int output_v4l2_frames(EncoderSetting *encoder_setting)
     // Write out to the V4L2 device (for example /dev/video0)
     // The stream packs are contiguous so we can just use the first
     // pack's address
+    // log_info("P8");
     ret = write(v4l2_fd, (void *)stream.pack[0].virAddr, total);
 
-    IMP_Encoder_ReleaseStream(encoder_setting->channel, &stream);
+    // log_info("P9");
+    IMP_Encoder_ReleaseStream(channel, &stream);
 
-    frames_written = frames_written + 1;
+    // Free up memory??
+    // IMP_Encoder_FlushStream(channel);
 
-    end = clock();
-    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+    // log_info("P9.1");
+    // frames_written = frames_written + 1;
 
-    adjusted_delay_in_seconds = delay_in_seconds - cpu_time_used;
+    // end = clock();
+    // cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+
+    // log_info("P9.2 %f", delay_in_seconds);
+    // adjusted_delay_in_seconds = delay_in_seconds - cpu_time_used;
     usleep(1000 * 1000 * delay_in_seconds);
 
+    // log_info("P9.3");
   }
 
 
-  ret = IMP_Encoder_StopRecvPic(encoder_setting->channel);
+  log_info("P10");
+  ret = IMP_Encoder_StopRecvPic(channel);
   if (ret < 0) {
-    log_error("IMP_Encoder_StopRecvPic(%d) failed", encoder_setting->channel);
+    log_error("IMP_Encoder_StopRecvPic(%d) failed", channel);
     return -1;
   }
 

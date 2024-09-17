@@ -1,4 +1,5 @@
 #include "capture.h"
+#include <stdlib.h>
 
 /* volatile might be necessary depending on the system/implementation in use. 
 (see "C11 draft standard n1570: 5.1.2.3") */
@@ -9,7 +10,7 @@ pthread_mutex_t frame_generator_mutex;
 FILE* logfile_fp;
 int primary_log_callback_id;
 
-snd_pcm_t *pcm_handle;
+// snd_pcm_t *pcm_handle;
 
 
 /* Signal Handler for SIGINT */
@@ -39,7 +40,7 @@ void logging_signal_handler(int sig_num)
   }
 
   logfile_fp = fopen(DEFAULT_LOGFILE, "a");
-  primary_log_callback_id = log_add_fp(logfile_fp, LOGC_INFO);
+  primary_log_callback_id = log_add_fp(logfile_fp, LOGC_TRACE);
 
   pthread_mutex_unlock(&log_mutex);
 }
@@ -86,6 +87,191 @@ void setup_framesource(FrameSource *framesource)
 }
 
 
+
+int encoder_init(int quality, int skiptype, int maxSameSceneCnt, int maxgop) {
+
+    int ret;
+    IMPEncoderAttr *enc_attr;
+    IMPEncoderRcAttr *rc_attr;
+    // IMPFSChnAttr *imp_chn_attr_tmp;
+    IMPEncoderCHNAttr channel_attr;
+    int bEnableScenecut;
+    int encoderMode = ENC_RC_MODE_VBR;
+
+    // imp_chn_attr_tmp = &m_chn.fs_chn_attr;
+    memset(&channel_attr, 0, sizeof(IMPEncoderCHNAttr));
+    enc_attr = &channel_attr.encAttr;
+    enc_attr->enType = PT_H264;
+    enc_attr->bufSize = 0;
+    enc_attr->profile = 1;
+    // enc_attr->picWidth = imp_chn_attr_tmp->picWidth;
+    // enc_attr->picHeight = imp_chn_attr_tmp->picHeight;
+    enc_attr->picWidth = 640;
+    enc_attr->picHeight = 360;
+    rc_attr = &channel_attr.rcAttr;
+
+    rc_attr->maxGop = maxgop; //2 * 25 / 1;
+    // SharedMem &mem = SharedMem::instance();
+    // shared_conf *conf = mem.getConfig();
+    // mem.readConfig();
+
+     if (maxSameSceneCnt > 0)
+     {
+        bEnableScenecut = 1;
+     }
+     else
+     {
+        bEnableScenecut = 0;
+     }
+
+
+    if (encoderMode == ENC_RC_MODE_CBR) {
+        log_error("Using CBR mode.");
+        rc_attr->attrRcMode.rcMode = ENC_RC_MODE_CBR;
+
+        // if (conf->bitrate > 0)
+        // {
+        //     log_error("Set initial bitrate (from sharedmem) to %d", conf->bitrate);
+        //     rc_attr->attrRcMode.attrH264Cbr.outBitRate = conf->bitrate;
+        // }
+        // else
+        // {
+        //     log_error("Set initial bitrate (default value) to %d", currentParams.bitrate);
+        //     rc_attr->attrRcMode.attrH264Cbr.outBitRate = currentParams.bitrate;
+        //     conf->bitrate =  currentParams.bitrate;
+        //     mem.setConfig();
+        // }
+        rc_attr->attrRcMode.attrH264Cbr.outBitRate = 500;
+
+        rc_attr->attrRcMode.attrH264Cbr.maxQp = 45;
+        rc_attr->attrRcMode.attrH264Cbr.minQp = 15;
+        rc_attr->attrRcMode.attrH264Cbr.iBiasLvl = 0;
+        rc_attr->attrRcMode.attrH264Cbr.frmQPStep = 3;
+        rc_attr->attrRcMode.attrH264Cbr.gopQPStep = 15;
+        rc_attr->attrRcMode.attrH264Cbr.adaptiveMode = false;
+        rc_attr->attrRcMode.attrH264Cbr.gopRelation = false;
+        
+        rc_attr->attrHSkip.hSkipAttr.skipType = (IMPSkipType) skiptype; //IMP_Encoder_STYPE_N1X;
+        rc_attr->attrHSkip.hSkipAttr.m = 0;
+        rc_attr->attrHSkip.hSkipAttr.n = 0;
+        rc_attr->attrHSkip.hSkipAttr.maxSameSceneCnt = maxSameSceneCnt;
+        rc_attr->attrHSkip.hSkipAttr.bEnableScenecut = bEnableScenecut;
+        rc_attr->attrHSkip.hSkipAttr.bBlackEnhance = 0;
+        rc_attr->attrHSkip.maxHSkipType = (IMPSkipType) skiptype; //IMP_Encoder_STYPE_N1X;
+    } else if (encoderMode == ENC_RC_MODE_VBR) {
+        // LOG_S(INFO) << "Using VBR mode.";
+        log_error("Using VBR mode.");
+        rc_attr->attrRcMode.rcMode = ENC_RC_MODE_VBR;
+
+        // if (conf->bitrate > 0)
+        // {
+        //     LOG_S(INFO) << "Set initial bitrate (from sharedmem) to " << conf->bitrate;
+        //     rc_attr->attrRcMode.attrH264Vbr.maxBitRate = conf->bitrate;
+        // }
+        // else
+        // {
+        //     LOG_S(INFO) << "Set initial bitrate (default value) to " << currentParams.bitrate;
+        //     rc_attr->attrRcMode.attrH264Vbr.maxBitRate = currentParams.bitrate;
+        //     conf->bitrate =  currentParams.bitrate;
+        //     mem.setConfig();
+        // }
+        rc_attr->attrRcMode.attrH264Vbr.maxBitRate = 500;
+
+
+        rc_attr->attrRcMode.attrH264Vbr.maxQp = 45;
+        rc_attr->attrRcMode.attrH264Vbr.minQp = 15;
+        rc_attr->attrRcMode.attrH264Vbr.staticTime = 2;
+        rc_attr->attrRcMode.attrH264Vbr.iBiasLvl = 0;
+        rc_attr->attrRcMode.attrH264Vbr.changePos = 80;
+        rc_attr->attrRcMode.attrH264Vbr.qualityLvl = quality;
+        rc_attr->attrRcMode.attrH264Vbr.frmQPStep = 3;
+        rc_attr->attrRcMode.attrH264Vbr.gopQPStep = 15;
+        rc_attr->attrRcMode.attrH264Vbr.gopRelation = false;
+
+        rc_attr->attrHSkip.hSkipAttr.skipType = (IMPSkipType) skiptype; //IMP_Encoder_STYPE_N1X;
+        rc_attr->attrHSkip.hSkipAttr.m = 0;
+        rc_attr->attrHSkip.hSkipAttr.n = 0;
+        rc_attr->attrHSkip.hSkipAttr.maxSameSceneCnt = maxSameSceneCnt;
+        rc_attr->attrHSkip.hSkipAttr.bEnableScenecut = bEnableScenecut;
+        rc_attr->attrHSkip.hSkipAttr.bBlackEnhance = 0;
+        rc_attr->attrHSkip.maxHSkipType = (IMPSkipType) skiptype; //IMP_Encoder_STYPE_N1X;
+    } else if (encoderMode == ENC_RC_MODE_SMART) {
+        // LOG_S(INFO) << "Using SMART mode.";
+        log_error("Using SMART mode.");
+        // if (conf->bitrate > 0)
+        // {
+        //     LOG_S(INFO) << "Set initial bitrate (from sharedmem) to " << conf->bitrate;
+        //     rc_attr->attrRcMode.attrH264Smart.maxBitRate = conf->bitrate;
+        // }
+        // else
+        // {
+        //     LOG_S(INFO) << "Set initial bitrate (default value) to " << currentParams.bitrate;
+        //     rc_attr->attrRcMode.attrH264Smart.maxBitRate = currentParams.bitrate;
+        //     conf->bitrate =  currentParams.bitrate;
+        //     mem.setConfig();
+        // }
+        rc_attr->attrRcMode.attrH264Smart.maxBitRate = 500;
+
+
+        rc_attr->attrRcMode.rcMode = ENC_RC_MODE_SMART;
+        rc_attr->attrRcMode.attrH264Smart.maxQp = 45;
+        rc_attr->attrRcMode.attrH264Smart.minQp = 15;
+        rc_attr->attrRcMode.attrH264Smart.staticTime = 2;
+        rc_attr->attrRcMode.attrH264Smart.iBiasLvl = 0;
+        rc_attr->attrRcMode.attrH264Smart.changePos = 80;
+        rc_attr->attrRcMode.attrH264Smart.qualityLvl = quality;
+        rc_attr->attrRcMode.attrH264Smart.frmQPStep = 3;
+        rc_attr->attrRcMode.attrH264Smart.gopQPStep = 15;
+        rc_attr->attrRcMode.attrH264Smart.gopRelation = false;
+        
+        rc_attr->attrHSkip.hSkipAttr.skipType = (IMPSkipType) skiptype; //IMP_Encoder_STYPE_N4X;
+        rc_attr->attrHSkip.hSkipAttr.m = rc_attr->maxGop - 1;
+        rc_attr->attrHSkip.hSkipAttr.n = 1;
+        rc_attr->attrHSkip.hSkipAttr.maxSameSceneCnt = maxSameSceneCnt;
+        rc_attr->attrHSkip.hSkipAttr.bEnableScenecut = bEnableScenecut;
+        rc_attr->attrHSkip.hSkipAttr.bBlackEnhance = 0;
+        rc_attr->attrHSkip.maxHSkipType = (IMPSkipType) skiptype; //IMP_Encoder_STYPE_N4X;
+    } else { /* fixQp */
+        log_error("Using FIX QP mode.");
+        // LOG_S(INFO) << "Using FIX QP mode.";
+        rc_attr->attrRcMode.rcMode = ENC_RC_MODE_FIXQP;
+        rc_attr->attrRcMode.attrH264FixQp.qp = 42;
+
+        rc_attr->attrHSkip.hSkipAttr.skipType = (IMPSkipType) skiptype; //IMP_Encoder_STYPE_N1X;
+        rc_attr->attrHSkip.hSkipAttr.m = 0;
+        rc_attr->attrHSkip.hSkipAttr.n = 0;
+        rc_attr->attrHSkip.hSkipAttr.maxSameSceneCnt = maxSameSceneCnt;
+        rc_attr->attrHSkip.hSkipAttr.bEnableScenecut = bEnableScenecut;
+        rc_attr->attrHSkip.hSkipAttr.bBlackEnhance = 0;
+        rc_attr->attrHSkip.maxHSkipType = (IMPSkipType) skiptype; //IMP_Encoder_STYPE_N1X;
+    }
+                
+    ret = IMP_Encoder_CreateChn(0, &channel_attr);
+    if (ret < 0) {
+        log_error("IMP_Encoder_CreateChn(0) error: %d", ret);
+        // LOG_S(ERROR) << "IMP_Encoder_CreateChn(0) error:"<<  ret;
+        return -1;
+    }
+
+    ret = IMP_Encoder_RegisterChn(0, 0);
+    if (ret < 0) {
+        log_error("IMP_Encoder_RegisterChn(0,0) error: %d", ret);
+        // LOG_S(ERROR) << "IMP_Encoder_RegisterChn(0,0) error:"<<  ret;
+        return -1;
+    }
+
+    IMPEncoderFrmRate rate = {0};
+    ret = IMP_Encoder_GetChnFrmRate(0, &rate);
+    if (ret < 0) {
+        log_error("IMP_Encoder_GetChnFrmRate(0) error: %d", ret);
+        // LOG_S(ERROR) << "IMP_Encoder_GetChnFrmRate(0) error:"<<  ret;
+
+    }
+
+    return 0;
+}
+
+
 int setup_encoder(EncoderSetting *encoder_setting)
 {
   int ret;
@@ -110,6 +296,14 @@ int setup_encoder(EncoderSetting *encoder_setting)
   }
   log_info("IMP_Encoder_RegisterChn(Group [%d], Channel [%d])", encoder_setting->group, encoder_setting->channel);
 
+  IMPEncoderFrmRate rate = {0};
+  ret = IMP_Encoder_GetChnFrmRate(encoder_setting->channel, &rate);
+  if (ret < 0) {
+      log_error("IMP_Encoder_GetChnFrmRate error.");
+
+  }
+  // int quality, int skiptype, int maxSameSceneCnt, int maxgop
+  // encoder_init(0, 0, 1, 8);
   return 0;
 }
 
@@ -230,36 +424,36 @@ int setup_binding(Binding *binding)
 
 }
 
-int load_bindings(cJSON *json, CameraConfig *camera_config)
-{
-  int i;
-  cJSON *json_stream;
-  cJSON *json_bindings;
+// int load_bindings(cJSON *json, CameraConfig *camera_config)
+// {
+//   int i;
+//   cJSON *json_stream;
+//   cJSON *json_bindings;
 
-  log_info("Loading bindings");
+//   log_info("Loading bindings");
 
-  // Parse bindings
-  json_bindings = cJSON_GetObjectItemCaseSensitive(json, "bindings");
-  if (json_bindings == NULL) {
-    log_error("Key 'bindings' not found in JSON.");
-    return -1;
-  }
-  camera_config->num_bindings = cJSON_GetArraySize(json_bindings);
-  log_info("Found %d bindings.", camera_config->num_bindings);
+//   // Parse bindings
+//   json_bindings = cJSON_GetObjectItemCaseSensitive(json, "bindings");
+//   if (json_bindings == NULL) {
+//     log_error("Key 'bindings' not found in JSON.");
+//     return -1;
+//   }
+//   camera_config->num_bindings = cJSON_GetArraySize(json_bindings);
+//   log_info("Found %d bindings.", camera_config->num_bindings);
 
-  for (i = 0; i < camera_config->num_bindings; ++i) {
-    json_stream = cJSON_DetachItemFromArray(json_bindings, 0);
+//   for (i = 0; i < camera_config->num_bindings; ++i) {
+//     json_stream = cJSON_DetachItemFromArray(json_bindings, 0);
     
-    if( populate_binding(&camera_config->bindings[i], json_stream) != 0) {
-      log_error("Error parsing num_bindings[%d].", i);
-      cJSON_Delete(json_stream);
-      return -1;
-    }
-    print_binding(&camera_config->bindings[i]);
-    setup_binding(&camera_config->bindings[i]);
-    cJSON_Delete(json_stream);
-  }
-}
+//     if( populate_binding(&camera_config->bindings[i], json_stream) != 0) {
+//       log_error("Error parsing num_bindings[%d].", i);
+//       cJSON_Delete(json_stream);
+//       return -1;
+//     }
+//     print_binding(&camera_config->bindings[i]);
+//     setup_binding(&camera_config->bindings[i]);
+//     cJSON_Delete(json_stream);
+//   }
+// }
 
 int load_general_settings(cJSON *json, CameraConfig *camera_config)
 {
@@ -281,7 +475,6 @@ int load_general_settings(cJSON *json, CameraConfig *camera_config)
   cJSON *show_timestamp = cJSON_GetObjectItemCaseSensitive(json_general_settings, "show_timestamp");
   cJSON *timestamp_24h = cJSON_GetObjectItemCaseSensitive(json_general_settings, "timestamp_24h");
   cJSON *timestamp_location = cJSON_GetObjectItemCaseSensitive(json_general_settings, "timestamp_location");
-  cJSON *enable_audio = cJSON_GetObjectItemCaseSensitive(json_general_settings, "enable_audio");
 
   camera_config->flip_vertical = flip_vertical->valueint;
   camera_config->flip_horizontal = flip_horizontal->valueint;
@@ -298,9 +491,6 @@ int load_general_settings(cJSON *json, CameraConfig *camera_config)
   }
 
   camera_config->enable_audio = 0;
-  if (enable_audio) {
-    camera_config->enable_audio = enable_audio->valueint;
-  }
 
 
   print_general_settings(camera_config);
@@ -314,7 +504,23 @@ void load_configuration(cJSON *json, CameraConfig *camera_config)
   load_general_settings(json, camera_config);
   load_framesources(json, camera_config);
   load_encoders(json, camera_config);
-  load_bindings(json, camera_config);
+  // load_bindings(json, camera_config);
+  Binding binding;
+
+    // m_chn.framesource_chn.deviceID = DEV_ID_FS;
+    // m_chn.framesource_chn.groupID = 0;
+    // m_chn.framesource_chn.outputID = 0;
+  binding.source.device = DEV_ID_FS;
+  binding.source.group = 0;
+  binding.source.output = 0;
+  binding.target.device = DEV_ID_ENC;
+  binding.target.group = 0;
+  binding.target.output = 0;
+    // m_chn.imp_encoder.deviceID = DEV_ID_ENC;
+    // m_chn.imp_encoder.groupID = 0;
+    // m_chn.imp_encoder.outputID = 0;
+  // ret = IMP_System_Bind(&m_chn.framesource_chn, &m_chn.imp_encoder);
+  setup_binding(&binding);
 }
 
 
@@ -336,25 +542,25 @@ void start_frame_producer_threads(CameraConfig *camera_config)
   pthread_t thread_ids[MAX_ENCODERS];
   EncoderThreadParams encoder_thread_params[MAX_ENCODERS];
 
-  pthread_t audio_thread_id;
+  // pthread_t audio_thread_id;
   pthread_t timestamp_osd_thread_id;
   pthread_t night_vision_thread_id;
   pthread_t real_time_configuration_thread_id;
 
 
-  if(camera_config->enable_audio) {
-    log_info("Starting audio thread");
-    ret = pthread_create(&audio_thread_id, NULL, audio_thread_entry_start, NULL);
-    if (ret < 0) {
-      log_error("Error creating audio thread");
-    }
-  }
+  // if(camera_config->enable_audio) {
+  //   log_info("Starting audio thread");
+  //   ret = pthread_create(&audio_thread_id, NULL, audio_thread_entry_start, NULL);
+  //   if (ret < 0) {
+  //     log_error("Error creating audio thread");
+  //   }
+  // }
 
-  log_info("Starting timestamp OSD thread");
-  ret = pthread_create(&timestamp_osd_thread_id, NULL, timestamp_osd_entry_start, camera_config);
-  if (ret < 0) {
-    log_error("Error creating timestamp OSD thread");
-  }
+  // log_info("Starting timestamp OSD thread");
+  // ret = pthread_create(&timestamp_osd_thread_id, NULL, timestamp_osd_entry_start, camera_config);
+  // if (ret < 0) {
+  //   log_error("Error creating timestamp OSD thread");
+  // }
 
   log_info("Starting night vision thread");
   ret = pthread_create(&night_vision_thread_id, NULL, night_vision_entry_start, camera_config);
@@ -362,11 +568,11 @@ void start_frame_producer_threads(CameraConfig *camera_config)
     log_error("Error creating night vision thread");
   }
 
-  log_info("Starting real time configuration thread");
-  ret = pthread_create(&real_time_configuration_thread_id, NULL, real_time_configuration_start, camera_config);
-  if (ret < 0) {
-    log_error("Error creating real time configuration thread");
-  }
+  // log_info("Starting real time configuration thread");
+  // ret = pthread_create(&real_time_configuration_thread_id, NULL, real_time_configuration_start, camera_config);
+  // if (ret < 0) {
+  //   log_error("Error creating real time configuration thread");
+  // }
 
 
   log_info("Starting frame producer threads for each encoder");
@@ -391,11 +597,11 @@ void start_frame_producer_threads(CameraConfig *camera_config)
     pthread_join(thread_ids[i], NULL);
   }
 
-  log_info("Waiting for audio thread %d to finish.", audio_thread_id);
-  pthread_join(audio_thread_id, NULL);
+  // log_info("Waiting for audio thread %d to finish.", audio_thread_id);
+  // pthread_join(audio_thread_id, NULL);
 
-  log_info("Waiting for OSD timestamp thread %d to finish.", timestamp_osd_thread_id);
-  pthread_join(timestamp_osd_thread_id, NULL);
+  // log_info("Waiting for OSD timestamp thread %d to finish.", timestamp_osd_thread_id);
+  // pthread_join(timestamp_osd_thread_id, NULL);
 
 }
 
@@ -470,10 +676,12 @@ int main(int argc, const char *argv[])
 
 
   // Configure logging
-  log_set_level(LOGC_INFO);
+  // log_set_level(LOGC_INFO);
+  log_set_level(LOGC_TRACE);
   log_set_lock(lock_callback, &log_mutex);
   logfile_fp = fopen(DEFAULT_LOGFILE, "w+");
-  primary_log_callback_id = log_add_fp(logfile_fp, LOGC_INFO);
+  primary_log_callback_id = log_add_fp(logfile_fp, LOGC_TRACE);
+  // log_init_syslog();
   
 
   // Reading the JSON file into memory  
@@ -512,11 +720,12 @@ int main(int argc, const char *argv[])
   }
   fclose(fp);
 
+  log_info("CALL initialize_sensor");
   initialize_sensor(&sensor_info);
 
-  if(camera_config.enable_audio) {
-    initialize_audio();
-  }
+  // if(camera_config.enable_audio) {
+  //   initialize_audio();
+  // }
 
   // Parsing the JSON file
   json = cJSON_ParseWithLength(file_contents, file_size);
@@ -555,6 +764,8 @@ int main(int argc, const char *argv[])
     return -1;
   } 
 
+  struct timespec req = {0, 500000000L};
+  nanosleep(&req, NULL);
   
   // This will suspend the main thread until the streams quit
   start_frame_producer_threads(&camera_config);

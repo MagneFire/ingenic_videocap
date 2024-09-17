@@ -43,6 +43,6 @@ typedef struct color_fx_mode {
 } ColorFxMode;
 
 
-void get_setting(int id, char* setting_name, Setting* setting);
+// void get_setting(int id, char* setting_name, Setting* setting);
 
 #endif

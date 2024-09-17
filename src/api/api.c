@@ -18,7 +18,7 @@ OpenMiko API
 #include "log.h"
 
 // The general sqlite configuration database
-sqlite3 *db;
+// sqlite3 *db;
 
 
 FIO_LOG_LEVEL = FIO_LOG_LEVEL_DEBUG;
@@ -71,7 +71,7 @@ static void on_request_json(http_s *h);
 static void on_request_plain_text(http_s *h);
 
 static void on_request_settings(http_s *h);
-static void on_request_auth(http_s *h);
+// static void on_request_auth(http_s *h);
 static void on_request_user(http_s *h);
 
 /* *****************************************************************************
@@ -82,13 +82,13 @@ int main(int argc, char const *argv[]) {
   cli_init(argc, argv);
 
 
-  open_database();
+  // open_database();
 
   /* setup routes */
   route_add("/json", on_request_json);
   route_add("/plaintext", on_request_plain_text);
   route_add("/settings", on_request_settings);
-  route_add("/auth", on_request_auth);
+  // route_add("/auth", on_request_auth);
   route_add("/user", on_request_user);
 
 
@@ -188,83 +188,83 @@ static void on_request_user(http_s *h) {
   }
 }
 
-static void on_request_auth(http_s *h) {
-  FIOBJ json;
+// static void on_request_auth(http_s *h) {
+//   FIOBJ json;
 
-  FIO_LOG_INFO("In auth request. Method: %s", fiobj_obj2cstr(h->method).data);
+//   FIO_LOG_INFO("In auth request. Method: %s", fiobj_obj2cstr(h->method).data);
 
-  if (strcmp(fiobj_obj2cstr(h->method).data, "POST") == 0) {
-    // Extract email and password
-    http_parse_body(h);
-    FIOBJ params = h->params;
+//   if (strcmp(fiobj_obj2cstr(h->method).data, "POST") == 0) {
+//     // Extract email and password
+//     http_parse_body(h);
+//     FIOBJ params = h->params;
     
 
-    FIOBJ key_email = fiobj_str_new("email", 5);
-    FIOBJ email = fiobj_hash_get(params, key_email);
+//     FIOBJ key_email = fiobj_str_new("email", 5);
+//     FIOBJ email = fiobj_hash_get(params, key_email);
 
-    FIOBJ key_password = fiobj_str_new("password", 8);
-    FIOBJ password = fiobj_hash_get(params, key_password);
-
-
-    // char bcrypt_salt[BCRYPT_HASHSIZE];
-    // char bcrypt_hash[BCRYPT_HASHSIZE];
-    // int ret;    
-
-    // ret = bcrypt_gensalt(12, bcrypt_salt);
-    // printf("Generated bcrypt salt: %s\n", bcrypt_salt);
-
-    // ret = bcrypt_hashpw(fiobj_obj2cstr(password).data, bcrypt_salt, bcrypt_hash);
-    // printf("Hashed password: %s\n", bcrypt_hash);
+//     FIOBJ key_password = fiobj_str_new("password", 8);
+//     FIOBJ password = fiobj_hash_get(params, key_password);
 
 
-    // Check if the username and password are valid
+//     // char bcrypt_salt[BCRYPT_HASHSIZE];
+//     // char bcrypt_hash[BCRYPT_HASHSIZE];
+//     // int ret;    
+
+//     // ret = bcrypt_gensalt(12, bcrypt_salt);
+//     // printf("Generated bcrypt salt: %s\n", bcrypt_salt);
+
+//     // ret = bcrypt_hashpw(fiobj_obj2cstr(password).data, bcrypt_salt, bcrypt_hash);
+//     // printf("Hashed password: %s\n", bcrypt_hash);
 
 
-    // Retrieve the user
-    User user;
-    get_user(fiobj_obj2cstr(email).data, &user);
-
-    int is_authenticated = 0;
-    is_authenticated = (bcrypt_checkpw(fiobj_obj2cstr(password).data, user.password) == 0);
-
-    char session_token[255];
+//     // Check if the username and password are valid
 
 
-    fiobj_free(params);
-    fiobj_free(key_email);
-    fiobj_free(email);
+//     // Retrieve the user
+//     User user;
+//     get_user(fiobj_obj2cstr(email).data, &user);
+
+//     int is_authenticated = 0;
+//     is_authenticated = (bcrypt_checkpw(fiobj_obj2cstr(password).data, user.password) == 0);
+
+//     char session_token[255];
 
 
-    if (is_authenticated) {
-      log_info("User %s is authenticated", user.email);
-      generate_session_token(&user, session_token);
+//     fiobj_free(params);
+//     fiobj_free(key_email);
+//     fiobj_free(email);
 
-      http_set_header(h, HTTP_HEADER_CONTENT_TYPE, http_mimetype_find("json", 4));
 
-      FIOBJ key = fiobj_str_new("token", 5);
-      FIOBJ value = fiobj_str_new(session_token, strlen(session_token));
+//     if (is_authenticated) {
+//       log_info("User %s is authenticated", user.email);
+//       generate_session_token(&user, session_token);
 
-      /* create a new Hash to be serialized for every request */
-      FIOBJ hash = fiobj_hash_new2(1);
-      fiobj_hash_set(hash, key, fiobj_dup(value));
+//       http_set_header(h, HTTP_HEADER_CONTENT_TYPE, http_mimetype_find("json", 4));
 
-      json = fiobj_obj2json(hash, 0);
+//       FIOBJ key = fiobj_str_new("token", 5);
+//       FIOBJ value = fiobj_str_new(session_token, strlen(session_token));
 
-      fiobj_free(hash);
+//       /* create a new Hash to be serialized for every request */
+//       FIOBJ hash = fiobj_hash_new2(1);
+//       fiobj_hash_set(hash, key, fiobj_dup(value));
 
-      fio_str_info_s tmp = fiobj_obj2cstr(json);
+//       json = fiobj_obj2json(hash, 0);
 
-      http_send_body(h, tmp.data, tmp.len);
+//       fiobj_free(hash);
 
-      fiobj_free(key);
-      fiobj_free(value);
-      fiobj_free(json);
-      return;
-    }
+//       fio_str_info_s tmp = fiobj_obj2cstr(json);
 
-    http_send_error(h, 401);
-  }
-}
+//       http_send_body(h, tmp.data, tmp.len);
+
+//       fiobj_free(key);
+//       fiobj_free(value);
+//       fiobj_free(json);
+//       return;
+//     }
+
+//     http_send_error(h, 401);
+//   }
+// }
 
 
 
